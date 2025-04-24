@@ -26,7 +26,7 @@ def get_preference_list(
     places: List[str] = Query(...),
     percentile: float = Query(..., ge=0, le=100),
     branches: List[str] = Query(...),
-    category: str = Query("OBC")
+    category: str = Query("General")
 ):
     df = cutoff_df.copy()
     range_val = CATEGORY_RANGES.get(category.upper(), 15)
