@@ -1,9 +1,24 @@
 from fastapi import FastAPI, Query, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
 import pandas as pd
 import os # To check if file exists locally first (optional)
 
 app = FastAPI()
+
+
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows specified origins
+    allow_credentials=True, # Allows cookies/authorization headers
+    allow_methods=["*"],    # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],    # Allows all headers
+)
+
+
 
 # --- Configuration ---
 # Use environment variable or fallback for flexibility
