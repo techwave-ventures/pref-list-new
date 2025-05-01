@@ -161,20 +161,20 @@ def get_preference_list(
     print(f"Step 1 Results: {len(filtered)} entries")
 
     # --- Step 2: Widen Cutoff Range (Lower Bound = 0) ---
-    if len(filtered) < MIN_PREFERENCES:
-        print(f"Step 2: Less than {MIN_PREFERENCES} results. Widening cutoff range [0, {percentile + range_val}]...")
-        final_filter_level = "Widened Cutoff"
-        lower_bound = 0 # Set lower bound to 0
-        filtered = filter_dataframe(df, places, branches, category, percentile, use_place_filter=True, lower_bound_cutoff=lower_bound)
-        print(f"Step 2 Results: {len(filtered)} entries")
+    # if len(filtered) < MIN_PREFERENCES:
+    #     print(f"Step 2: Less than {MIN_PREFERENCES} results. Widening cutoff range [0, {percentile + range_val}]...")
+    #     final_filter_level = "Widened Cutoff"
+    #     lower_bound = 0 # Set lower bound to 0
+    #     filtered = filter_dataframe(df, places, branches, category, percentile, use_place_filter=True, lower_bound_cutoff=lower_bound)
+    #     print(f"Step 2 Results: {len(filtered)} entries")
 
     # --- Step 3: Remove Place Filter ---
-    if len(filtered) < MIN_PREFERENCES:
-        print(f"Step 3: Still less than {MIN_PREFERENCES} results. Removing place filter...")
-        final_filter_level = "Removed Place Filter"
-        lower_bound = 0 # Keep lower bound at 0
-        filtered = filter_dataframe(df, places, branches, category, percentile, use_place_filter=False, lower_bound_cutoff=lower_bound)
-        print(f"Step 3 Results: {len(filtered)} entries")
+    # if len(filtered) < MIN_PREFERENCES:
+    #     print(f"Step 3: Still less than {MIN_PREFERENCES} results. Removing place filter...")
+    #     final_filter_level = "Removed Place Filter"
+    #     lower_bound = 0 # Keep lower bound at 0
+    #     filtered = filter_dataframe(df, places, branches, category, percentile, use_place_filter=False, lower_bound_cutoff=lower_bound)
+    #     print(f"Step 3 Results: {len(filtered)} entries")
 
 
     # --- Final Processing (Sorting, Column Selection) ---
