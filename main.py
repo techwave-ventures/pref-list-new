@@ -43,23 +43,23 @@ def load_and_clean_data(url: str, local_path: str) -> pd.DataFrame:
     df = None
     if os.path.exists(local_path):
         try:
-            # print(f"Loading data from local cache: {local_path}")
+            print(f"Loading data from local cache: {local_path}")
             df = pd.read_csv(local_path)
         except Exception as e:
-            # print(f"Error loading local cache {local_path}: {e}. Fetching from URL.")
+            print(f"Error loading local cache {local_path}: {e}. Fetching from URL.")
             df = None
 
     if df is None:
         try:
-            # print(f"Fetching data from URL: {url}")
+            print(f"Fetching data from URL: {url}")
             df = pd.read_csv(url)
             try:
                 df.to_csv(local_path, index=False)
-                # print(f"Data cached locally to {local_path}")
+                print(f"Data cached locally to {local_path}")
             except Exception as e:
-                # print(f"Warning: Could not cache data locally: {e}")
+                print(f"Warning: Could not cache data locally: {e}")
         except Exception as e:
-            # print(f"FATAL: Error fetching data from URL {url}: {e}")
+            print(f"FATAL: Error fetching data from URL {url}: {e}")
             raise HTTPException(status_code=503, detail="Could not load necessary college data.")
 
     # print("Cleaning data...")
@@ -79,7 +79,7 @@ def load_and_clean_data(url: str, local_path: str) -> pd.DataFrame:
     required_cols = ['College Code', 'College Name', 'Choice Code', 'Branch', 'Cutoff', 'Place']
     missing_cols = [col for col in required_cols if col not in df.columns]
     if missing_cols:
-        # print(f"FATAL: Missing required columns in dataset: {missing_cols}")
+        print(f"FATAL: Missing required columns in dataset: {missing_cols}")
         raise HTTPException(status_code=500, detail=f"Dataset is missing required columns: {missing_cols}")
 
     # print("Data loaded and cleaned successfully.")
@@ -105,7 +105,7 @@ def filter_dataframe(df: pd.DataFrame, places: List[str], branches: List[str], c
         place_mask = df['Place_clean'].isin(places_lower)
         combined_mask &= place_mask
     elif use_place_filter:
-        # print("Warning: Place filter requested but 'Place_clean' column is missing or invalid. Skipping place filter.")
+        print("Warning: Place filter requested but 'Place_clean' column is missing or invalid. Skipping place filter.")
     return df[combined_mask]
 
 # --- API Endpoint ---
@@ -133,7 +133,7 @@ def get_preference_list(
         existing_selected_cols = [col for col in selected_cols if col in filtered.columns]
         filtered = filtered[existing_selected_cols]
     else:
-        # print("No colleges found matching any filter criteria.")
+        print("No colleges found matching any filter criteria.")
 
     return {
         "query": {"percentile": percentile, "category": category, "branches": branches, "places": places,},
