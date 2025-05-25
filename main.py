@@ -28,8 +28,9 @@ app.add_middleware(
 )
 
 # --- Original Configuration ---
-CSV_URL = os.getenv("CUTOFF_CSV_URL", "https://drive.google.com/uc?export=download&id=1AkIPPpu1XGXhBleR-x1GFLpENISIGuFm")
-LOCAL_CSV_PATH = "cutoff_data.csv"
+# CSV_URL = os.getenv("CUTOFF_CSV_URL", "https://drive.google.com/uc?export=download&id=1AkIPPpu1XGXhBleR-x1GFLpENISIGuFm")
+# LOCAL_CSV_PATH = "cutoff_data.csv"
+EXCEL_FILE_PATH = "final_cutoff.xlsx"
 MIN_PREFERENCES = 100
 
 CATEGORY_RANGES = {
@@ -39,41 +40,77 @@ CATEGORY_RANGES = {
 DEFAULT_RANGE = 15
 
 # --- Data Loading ---
-def load_and_clean_data(url: str, local_path: str) -> pd.DataFrame:
-    df = None
-    if os.path.exists(local_path):
-        try:
-            print(f"Loading data from local cache: {local_path}")
-            df = pd.read_csv(local_path)
-        except Exception as e:
-            print(f"Error loading local cache {local_path}: {e}. Fetching from URL.")
-            df = None
+# def load_and_clean_data(url: str, local_path: str) -> pd.DataFrame:
+#     df = None
+#     if os.path.exists(local_path):
+#         try:
+#             print(f"Loading data from local cache: {local_path}")
+#             df = pd.read_csv(local_path)
+#         except Exception as e:
+#             print(f"Error loading local cache {local_path}: {e}. Fetching from URL.")
+#             df = None
 
-    if df is None:
-        try:
-            print(f"Fetching data from URL: {url}")
-            df = pd.read_csv(url)
-            try:
-                df.to_csv(local_path, index=False)
-                print(f"Data cached locally to {local_path}")
-            except Exception as e:
-                print(f"Warning: Could not cache data locally: {e}")
-        except Exception as e:
-            print(f"FATAL: Error fetching data from URL {url}: {e}")
-            raise HTTPException(status_code=503, detail="Could not load necessary college data.")
+#     if df is None:
+#         try:
+#             print(f"Fetching data from URL: {url}")
+#             df = pd.read_csv(url)
+#             try:
+#                 df.to_csv(local_path, index=False)
+#                 print(f"Data cached locally to {local_path}")
+#             except Exception as e:
+#                 print(f"Warning: Could not cache data locally: {e}")
+#         except Exception as e:
+#             print(f"FATAL: Error fetching data from URL {url}: {e}")
+#             raise HTTPException(status_code=503, detail="Could not load necessary college data.")
 
-    # print("Cleaning data...")
+#     # print("Cleaning data...")
+#     df['Cutoff'] = pd.to_numeric(df['Cutoff'], errors='coerce')
+#     df.dropna(subset=['Cutoff'], inplace=True)
+#     if 'Place' in df.columns:
+#         df['Place_clean'] = df['Place'].str.strip().str.lower()
+#     else:
+#         # print("Warning: 'Place' column not found in the dataset.")
+#         df['Place_clean'] = None
+#     if 'Branch' in df.columns:
+#         df['Branch'] = df['Branch'].str.strip()
+#     else:
+#         # print("Warning: 'Branch' column not found in the dataset.")
+#         df['Branch'] = None
+
+#     required_cols = ['College Code', 'College Name', 'Choice Code', 'Branch', 'Cutoff', 'Place']
+#     missing_cols = [col for col in required_cols if col not in df.columns]
+#     if missing_cols:
+#         print(f"FATAL: Missing required columns in dataset: {missing_cols}")
+#         raise HTTPException(status_code=500, detail=f"Dataset is missing required columns: {missing_cols}")
+
+#     # print("Data loaded and cleaned successfully.")
+#     return df
+
+# --- New: Load and Clean Data from Excel ---
+def load_and_clean_data_excel(file_path: str) -> pd.DataFrame:
+    if not os.path.exists(file_path):
+        print(f"FATAL: Excel file not found at path: {file_path}")
+        raise HTTPException(status_code=500, detail="Excel file with cutoff data not found.")
+
+    try:
+        print(f"Loading data from Excel file: {file_path}")
+        df = pd.read_excel(file_path)
+    except Exception as e:
+        print(f"FATAL: Error loading Excel file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to read Excel file.")
+
+    # Cleaning
     df['Cutoff'] = pd.to_numeric(df['Cutoff'], errors='coerce')
     df.dropna(subset=['Cutoff'], inplace=True)
+
     if 'Place' in df.columns:
-        df['Place_clean'] = df['Place'].str.strip().str.lower()
+        df['Place_clean'] = df['Place'].astype(str).str.strip().str.lower()
     else:
-        # print("Warning: 'Place' column not found in the dataset.")
         df['Place_clean'] = None
+
     if 'Branch' in df.columns:
-        df['Branch'] = df['Branch'].str.strip()
+        df['Branch'] = df['Branch'].astype(str).str.strip()
     else:
-        # print("Warning: 'Branch' column not found in the dataset.")
         df['Branch'] = None
 
     required_cols = ['College Code', 'College Name', 'Choice Code', 'Branch', 'Cutoff', 'Place']
@@ -82,11 +119,17 @@ def load_and_clean_data(url: str, local_path: str) -> pd.DataFrame:
         print(f"FATAL: Missing required columns in dataset: {missing_cols}")
         raise HTTPException(status_code=500, detail=f"Dataset is missing required columns: {missing_cols}")
 
-    # print("Data loaded and cleaned successfully.")
     return df
 
+
+# try:
+#     cutoff_df_global = load_and_clean_data(CSV_URL, LOCAL_CSV_PATH)
+# except HTTPException as e:
+#     print(f"Application startup failed: {e.detail}")
+#     cutoff_df_global = pd.DataFrame()
+
 try:
-    cutoff_df_global = load_and_clean_data(CSV_URL, LOCAL_CSV_PATH)
+    cutoff_df_global = load_and_clean_data_excel(EXCEL_FILE_PATH)
 except HTTPException as e:
     print(f"Application startup failed: {e.detail}")
     cutoff_df_global = pd.DataFrame()
