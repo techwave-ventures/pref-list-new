@@ -10,12 +10,9 @@ import time # For logging timestamps
 app = FastAPI()
 
 # --- Configuration for Hailing/Heartbeat ---
-# Use an environment variable for the app's own URL, fallback for local dev
-# For deployed services (like on Render), set APP_BASE_URL in environment variables
-# e.g., APP_BASE_URL=https://your-app-name.onrender.com
-APP_BASE_URL = "https://pref-list-new.onrender.com" # Default to common local FastAPI port
+APP_BASE_URL = "https://pref-list-new.onrender.com"
 HAILING_ENDPOINT = "/hailing"
-HEARTBEAT_INTERVAL_SECONDS = 14 * 60  # 14 minutes
+HEARTBEAT_INTERVAL_SECONDS = 14 * 60 # 14 minutes
 
 origins = ["*"] # Consider restricting this in production
 
@@ -28,10 +25,8 @@ app.add_middleware(
 )
 
 # --- Original Configuration ---
-# CSV_URL = os.getenv("CUTOFF_CSV_URL", "https://drive.google.com/uc?export=download&id=1AkIPPpu1XGXhBleR-x1GFLpENISIGuFm")
-# LOCAL_CSV_PATH = "cutoff_data.csv"
 EXCEL_FILE_PATH = "final_cutoff.xlsx"
-MIN_PREFERENCES = 100
+MIN_PREFERENCES = 25 # Set to 25 as requested
 
 CATEGORY_RANGES = {
     "GENERAL": 10, "OBC": 15, "EWS": 15, "VJ": 20, "NT": 20,
@@ -40,53 +35,6 @@ CATEGORY_RANGES = {
 DEFAULT_RANGE = 15
 
 # --- Data Loading ---
-# def load_and_clean_data(url: str, local_path: str) -> pd.DataFrame:
-#     df = None
-#     if os.path.exists(local_path):
-#         try:
-#             print(f"Loading data from local cache: {local_path}")
-#             df = pd.read_csv(local_path)
-#         except Exception as e:
-#             print(f"Error loading local cache {local_path}: {e}. Fetching from URL.")
-#             df = None
-
-#     if df is None:
-#         try:
-#             print(f"Fetching data from URL: {url}")
-#             df = pd.read_csv(url)
-#             try:
-#                 df.to_csv(local_path, index=False)
-#                 print(f"Data cached locally to {local_path}")
-#             except Exception as e:
-#                 print(f"Warning: Could not cache data locally: {e}")
-#         except Exception as e:
-#             print(f"FATAL: Error fetching data from URL {url}: {e}")
-#             raise HTTPException(status_code=503, detail="Could not load necessary college data.")
-
-#     # print("Cleaning data...")
-#     df['Cutoff'] = pd.to_numeric(df['Cutoff'], errors='coerce')
-#     df.dropna(subset=['Cutoff'], inplace=True)
-#     if 'Place' in df.columns:
-#         df['Place_clean'] = df['Place'].str.strip().str.lower()
-#     else:
-#         # print("Warning: 'Place' column not found in the dataset.")
-#         df['Place_clean'] = None
-#     if 'Branch' in df.columns:
-#         df['Branch'] = df['Branch'].str.strip()
-#     else:
-#         # print("Warning: 'Branch' column not found in the dataset.")
-#         df['Branch'] = None
-
-#     required_cols = ['College Code', 'College Name', 'Choice Code', 'Branch', 'Cutoff', 'Place']
-#     missing_cols = [col for col in required_cols if col not in df.columns]
-#     if missing_cols:
-#         print(f"FATAL: Missing required columns in dataset: {missing_cols}")
-#         raise HTTPException(status_code=500, detail=f"Dataset is missing required columns: {missing_cols}")
-
-#     # print("Data loaded and cleaned successfully.")
-#     return df
-
-# --- New: Load and Clean Data from Excel ---
 def load_and_clean_data_excel(file_path: str) -> pd.DataFrame:
     if not os.path.exists(file_path):
         print(f"FATAL: Excel file not found at path: {file_path}")
@@ -121,24 +69,15 @@ def load_and_clean_data_excel(file_path: str) -> pd.DataFrame:
 
     return df
 
-
-# try:
-#     cutoff_df_global = load_and_clean_data(CSV_URL, LOCAL_CSV_PATH)
-# except HTTPException as e:
-#     print(f"Application startup failed: {e.detail}")
-#     cutoff_df_global = pd.DataFrame()
-
 try:
     cutoff_df_global = load_and_clean_data_excel(EXCEL_FILE_PATH)
 except HTTPException as e:
     print(f"Application startup failed: {e.detail}")
     cutoff_df_global = pd.DataFrame()
 
-
 # --- Helper Function for Filtering ---
-def filter_dataframe(df: pd.DataFrame, places: List[str], branches: List[str], category: str, percentile: float, use_place_filter: bool, lower_bound_cutoff: float) -> pd.DataFrame:
-    range_val = CATEGORY_RANGES.get(category.upper(), DEFAULT_RANGE)
-    upper_bound_cutoff = min(percentile + range_val, 100)
+# Added upper_bound_cutoff parameter
+def filter_dataframe(df: pd.DataFrame, places: List[str], branches: List[str], category: str, percentile: float, use_place_filter: bool, lower_bound_cutoff: float, upper_bound_cutoff: float) -> pd.DataFrame:
     branch_mask = df['Branch'].isin(branches)
     cutoff_mask = df['Cutoff'].between(lower_bound_cutoff, upper_bound_cutoff)
     combined_mask = branch_mask & cutoff_mask
@@ -161,14 +100,44 @@ def get_preference_list(
 ) -> Dict[str, Any]:
     if cutoff_df_global.empty:
         raise HTTPException(status_code=503, detail="College data is currently unavailable. Please try again later.")
+    
     df = cutoff_df_global.copy()
-    final_filter_level = "Initial"
+    
+    # Initial calculation of range and bounds
     range_val = CATEGORY_RANGES.get(category.upper(), DEFAULT_RANGE)
-    lower_bound = max(0, percentile - range_val)
-    filtered = filter_dataframe(df, places, branches, category, percentile, use_place_filter=True, lower_bound_cutoff=lower_bound)
+    current_lower_bound = max(0, percentile - range_val)
+    upper_bound_cutoff = min(percentile + range_val, 100) # Upper bound remains percentile + range_val
+
+    filtered = pd.DataFrame() # Initialize filtered DataFrame
+    attempts = 0
+    final_lower_bound_used = current_lower_bound # Track the final lower bound applied
+    
+    # Loop to expand lower bound if results are too few
+    while len(filtered) < MIN_PREFERENCES and final_lower_bound_used >= 0:
+        attempts += 1
+        
+        # Use the current_lower_bound for filtering in each iteration
+        filtered = filter_dataframe(
+            df, 
+            places, 
+            branches, 
+            category, 
+            percentile, 
+            use_place_filter=True, 
+            lower_bound_cutoff=final_lower_bound_used, # Use the current iteration's lower bound
+            upper_bound_cutoff=upper_bound_cutoff # Pass upper bound
+        )
+        
+        # If we have enough preferences, or lower_bound is already 0, break
+        if len(filtered) >= MIN_PREFERENCES or final_lower_bound_used == 0:
+            break
+            
+        # If not enough, reduce lower_bound by 10 for the next iteration
+        final_lower_bound_used = max(0, final_lower_bound_used - 10)
+        print(f"Attempt {attempts}: Found {len(filtered)} colleges. Reducing lower bound to {final_lower_bound_used:.2f} to find more.")
 
     if not filtered.empty:
-        # print("Sorting and finalizing results...")
+        # Sorting and finalizing results...
         filtered = filtered.copy()
         filtered.loc[:, 'MatchScore'] = abs(filtered['Cutoff'] - percentile)
         filtered = filtered.sort_values(by=['Cutoff', 'MatchScore'], ascending=[False, True])
@@ -176,12 +145,13 @@ def get_preference_list(
         existing_selected_cols = [col for col in selected_cols if col in filtered.columns]
         filtered = filtered[existing_selected_cols]
     else:
-        print("No colleges found matching any filter criteria.")
+        print(f"Even after expanding range, no colleges found matching criteria. Final lower bound: {final_lower_bound_used:.2f}")
 
     return {
         "query": {"percentile": percentile, "category": category, "branches": branches, "places": places,},
-        "filter_level_applied": final_filter_level,
+        "filter_level_applied": f"Expanded (final lower bound: {final_lower_bound_used:.2f})" if attempts > 1 else "Initial",
         "range_value_used": range_val,
+        "final_lower_bound_cutoff": final_lower_bound_used, # Include final lower bound
         "total_preferences_found": len(filtered),
         "unique_colleges_found": filtered['College Code'].nunique() if not filtered.empty else 0,
         "preferences": filtered.to_dict(orient='records') if not filtered.empty else []
