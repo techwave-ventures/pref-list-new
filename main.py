@@ -13,7 +13,7 @@ app = FastAPI()
 # Use an environment variable for the app's own URL, fallback for local dev
 # For deployed services (like on Render), set APP_BASE_URL in environment variables
 # e.g., APP_BASE_URL=https://your-app-name.onrender.com
-APP_BASE_URL = "https://pref-list-new-of9z.onrender.com" # Default to common local FastAPI port
+APP_BASE_URL = "https://pref-list-new.onrender.com" # Default to common local FastAPI port
 HAILING_ENDPOINT = "/hailing"
 HEARTBEAT_INTERVAL_SECONDS = 14 * 60  # 14 minutes
 
