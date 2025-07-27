@@ -10,7 +10,7 @@ import time # For logging timestamps
 app = FastAPI()
 
 # --- Configuration for Hailing/Heartbeat ---
-APP_BASE_URL = "https://pref-list-new.onrender.com"
+APP_BASE_URL = "https://pref-list-new-ztx6.onrender.com"
 HAILING_ENDPOINT = "/hailing"
 HEARTBEAT_INTERVAL_SECONDS = 14 * 60 # 14 minutes
 
